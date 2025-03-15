@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPoll- Polling System</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            text-align: center;
+        }
+
+        /* Navbar */
+        nav {
+            background-color: #007BFF;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        /* Sections */
+        .section {
+            display: none;
+            padding: 20px;
+            background: white;
+            margin: 20px auto;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        .active {
+            display: block;
+        }
+
+        input, button, select {
+            margin: 10px;
+            padding: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <a href="#" onclick="showSection('home')">Home</a>
+        <a href="#" onclick="showSection('create')">Create Poll</a>
+        <a href="#" onclick="showSection('vote')">Vote</a>
+        <a href="#" onclick="showSection('results')">Results</a>
+    </nav>
+
+    <!-- Sections -->
+    <div id="home" class="section active">
+        <h2>Welcome to SmartPoll</h2>
+        <p>Create and participate in polls easily!</p>
+    </div>
+
+    <div id="create" class="section">
+        <h2>Create a Poll</h2>
+        <input type="text" id="pollQuestion" placeholder="Enter poll question">
+        <input type="text" id="option1" placeholder="Option 1">
+        <input type="text" id="option2" placeholder="Option 2">
+        <button onclick="createPoll()">Create Poll</button>
+        <p id="createMessage"></p>
+    </div>
+
+    <div id="vote" class="section">
+        <h2>Vote on a Poll</h2>
+        <select id="pollList" onchange="loadPollOptions()">
+            <option value="">Select a Poll</option>
+        </select>
+        <div id="voteOptions"></div>
+        <p id="voteMessage"></p>
+    </div>
+
+    <div id="results" class="section">
+        <h2>Poll Results</h2>
+        <select id="resultPollList" onchange="loadResults()">
+            <option value="">Select a Poll</option>
+        </select>
+        <div id="pollResults"></div>
+    </div>
+
+    <script>
+        // Switch Between Sections
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(section).classList.add('active');
+        }
+
+        // Create a Poll
+        async function createPoll() {
+            const question = document.getElementById('pollQuestion').value;
+            const option1 = document.getElementById('option1').value;
+            const option2 = document.getElementById('option2').value;
+
+            if (!question || !option1 || !option2) {
+                document.getElementById('createMessage').innerText = "Please fill all fields.";
+                return;
+            }
+
+            const response = await fetch("http://localhost:5000/api/polls", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question, options: [option1, option2] })
+            });
+
+            const data = await response.json();
+            document.getElementById('createMessage').innerText = data.message;
+        }
+
+        // Load Polls for Voting & Results
+        async function loadPolls() {
+            const response = await fetch("http://localhost:5000/api/polls");
+            const polls = await response.json();
+            const pollList = document.getElementById('pollList');
+            const resultPollList = document.getElementById('resultPollList');
+
+            pollList.innerHTML = '<option value="">Select a Poll</option>';
+            resultPollList.innerHTML = '<option value="">Select a Poll</option>';
+
+            polls.forEach(poll => {
+                pollList.innerHTML += `<option value="${poll.id}">${poll.question}</option>`;
+                resultPollList.innerHTML += `<option value="${poll.id}">${poll.question}</option>`;
+            });
+        }
+
+        // Load Poll Options for Voting
+        async function loadPollOptions() {
+            const pollId = document.getElementById('pollList').value;
+            if (!pollId) return;
+
+            const response = await fetch(`http://localhost:5000/api/polls/${pollId}`);
+            const options = await response.json();
+            const voteOptionsDiv = document.getElementById('voteOptions');
+
+            voteOptionsDiv.innerHTML = '';
+            options.forEach(option => {
+                voteOptionsDiv.innerHTML += `
+                    <button onclick="vote(${option.id})">${option.option_text}</button><br>
+                `;
+            });
+        }
+
+        // Submit a Vote
+        async function vote(optionId) {
+            const response = await fetch("http://localhost:5000/api/vote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ optionId })
+            });
+
+            const data = await response.json();
+            document.getElementById('voteMessage').innerText = data.message;
+        }
+
+        // Load Poll Results
+        async function loadResults() {
+            const pollId = document.getElementById('resultPollList').value;
+            if (!pollId) return;
+
+            const response = await fetch(`http://localhost:5000/api/results/${pollId}`);
+            const results = await response.json();
+            const pollResultsDiv = document.getElementById('pollResults');
+
+            pollResultsDiv.innerHTML = '';
+            results.forEach(result => {
+                pollResultsDiv.innerHTML += `<p>${result.option_text}: ${result.votes} votes</p>`;
+            });
+        }
+
+        // Load Polls on Page Load
+        loadPolls();
+    </script>
+</body>
+</html>
